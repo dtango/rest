@@ -1,0 +1,444 @@
+<!--yyy-->
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width"> 
+   <title>Browse REST API</title> 
+   <script src="/web/jquery.min.js"></script>
+   <script src="/web/jquery.mobile-1.2.0.min.js"></script>
+   <script src="/web/jquery.responsivetable.min.js"></script>
+   <link rel="stylesheet" href="/web/jquery.css"/>
+   <link rel="stylesheet" type="text/css" href="/web/jsoneditor/jsoneditor-min.css">
+   <script type="text/javascript" src="/web/jsoneditor/jsoneditor-min.js"></script>
+
+<div class="mainpage">
+      <div data-role="page" id="stage1">
+
+<a href="#popupBasic" data-rel="popup" data-position-to="window">About this page</a>
+<div data-role="popup" id="popupBasic">
+        This UI is intended for developer use to:
+        <ol> <li> discover available API's (the 2nd line above is a list of what is available under /api) </li>
+             <li> graphically edit the REQUEST parameters and see its coressponding JSON for the HTTP BODY</li>
+             <li> send the complete REQUEST (URL, HTTP POST-DELETE, HTTP BODY) to the device and see the RESPONSE </li>
+             <li> you may also see available online documentation by appending ?meta e.g. http://[vsm-ip]/api/user?meta</li>
+        </ol>
+<p> Start by first selecting an available resource under /api, choose a row and an operation on that row in the last line </p>
+<p> For more tips/examples/guides on the Nexus1000V REST API visit <a href="http://developer.cisco.com/web/n1k"/> http://developer.cisco.com/web/n1k</a> </p>
+</div>
+
+       <div class="popups">
+
+        <div class="scopes">
+        </div>
+
+        <table class="instances">
+          <tr class="header">
+            <th> <b> Key </b> </th>
+          </tr>
+        </table>
+
+        <table class="opRow">
+        </br>
+          <caption><em>Click-select a row above & create a request</em></caption>
+          <tr>
+          <td> <a data-role="button" onclick=gotoRequestStage(1)> CLONE</a> </td>
+          <td> <a data-role="button" onclick=gotoRequestStage(2)> MODIFY</a> </td>
+          <td> <a data-role="button" onclick=gotoRequestStage(3)> DELETE</a> </td>
+          </tr>
+        </table>
+
+       </div>
+      </div>
+
+      <div data-role="page" id="stage2">
+         <h3>Request:</h3>
+         <select id='reqOp'><option>POST</option> <option>DELETE</option></select> 
+         URL: <input id="reqURL" type="url" class="reqURL"></input>
+        <h4> HTTP BODY: </h4>
+
+        <div data-role="content">   
+            <div data-role="navbar" id="navbar">
+                <ul>
+                    <li><a href="#" class="ui-btn-active" data-tab-class="tab1">Editor, click next tab to see JSON</a></li>
+                    <li><a href="#" data-tab-class="tab2" onclick='document.getElementById("treeeditor").contentWindow.sendJSON();'>JSON</a></li>
+                </ul>
+            </div>
+            <div class="tab-content">
+                <div class="tab1">
+                   <iframe id="treeeditor" src="/web/demo.html" width="600" height="400"></iframe>  
+                </div> 
+                <div class="tab2 ui-screen-hidden">
+                  ~<textarea id="reqBody" class="reqBody"></textarea>
+                </div>
+            </div>
+        </div><!-- /content -->
+        
+        <a data-role="button" onclick=gotoResponseStage()>SEND REQUEST TO DEVICE</a> 
+      </div>
+
+      <div data-role="page" id="stage3">
+         <h3>Response:</h3>
+         <textarea title="response" readonly="true" id="response"></textarea>
+         <a data-role="button" onclick=turnPage()>GOTO BEGINNING</a> 
+      </div>
+</div> <!--mainpage-->
+       
+<script>
+  //$('.gallery').prepend('<div data-role="header"> <h1>' + resourceURL + '</h1> </div>');
+
+  var instTable= $('.instances');
+  var headerLine = $('.header');
+  var props=manifest.class.properties!=undefined?Object.keys(manifest.class.properties):0;
+  for (var i=0; i<props.length; i++)
+  { 
+    if (props[i] == manifest.class.key)
+      continue;
+
+    var propType = manifest.class.properties[props[i]].type;
+    if (propType=="string" || propType=="number" || propType=="boolean")
+    {
+      headerLine.append("<th> " + props[i] + "</th>");
+    }
+
+  }
+
+  keys = Object.keys(instances);
+  
+  for (var i=0; i<keys.length; i++)
+  {
+     if (keys[i] == "")
+     {
+       $('.instances').hide();
+       $('.opRow').hide();
+       if (instances[""].subscopes != undefined)
+       {
+         var scopeDiv = $(".scopes");
+         var s = Object.keys(instances[""].subscopes);
+         for (var j=0; j<s.length; j++)
+         {
+         scopeDiv.append('<a href="' + instances[""].subscopes[s[j]] + '" data-ajax="false">' + s[j] + "</a>   ");
+       }
+      }
+      if (instances[""].properties != undefined)
+      {
+        $('#stage1').append("<pre> " + JSON.stringify(instances[keys[i]].properties, null, "  ") + "</pre>" );
+      }
+     } else
+     {
+       $('.instances').show();
+       $('.opRow').show();
+       $('.popups').append('<div data-role="popup" contenteditable="true" id="pop' + i + '"> <pre>' + JSON.stringify(instances[keys[i]].properties, null, "  ") +  '</pre></div>');
+
+       var row = '<tr>';
+       row += ' <td> <input type="checkbox" id="ch' + i + '" onclick="handleClick(this)";/> <label for="ch' + i + '" id="chl' + i + '">' + keys[i] + '</label> </td>';
+//       row += ' <td> <a href="#pop' + i + '" data-role="button" data-rel="popup">+</a> </td>';
+       for (var k=0; k<props.length; k++)
+       { 
+         if (props[k] == manifest.class.key) 
+           continue;
+ 
+         var propType = manifest.class.properties[props[k]].type;
+         if (propType=="string" || propType=="number" || propType=="boolean")
+         {
+           var propVal = instances[keys[i]].properties[props[k]]; 
+           if (props[k]=="description") 
+             row +=  "<td> - </td>";
+           else
+             row +=  "<td>" + (propVal==undefined? " - ":propVal) + "</td>";
+         }
+       }    
+
+       row += '</tr>';
+       instTable.append(row);
+     }
+  }
+  row += "</tr>";
+
+  $(document).ready(function(){
+    $('.instances').responsiveTable({
+      staticColumns: 1, 
+      scrollRight: false, 
+      scrollHintEnabled: true, 
+      scrollHintDuration: 2000
+    });
+  });
+ 
+  function handleClick(cb) {
+    setTimeout(function() {
+      if (cb.checked)
+      {
+        var r = /\d+/;
+        var id = cb.id.match(r);
+        var keys = Object.keys(instances);
+        for (var i=0; i<keys.length; i++)
+        {
+          (i!=id && $("#ch"+i).is(":checked"))?$("#ch" + i).prop('checked', false).checkboxradio("refresh"):"";
+        }
+      }
+    }, 0);
+  }
+
+  function gotoRequestStage(op)
+  {
+    var keys = Object.keys(instances);
+    for (var i=0; i<keys.length; i++)
+    {
+      if ( $("#ch" + i).is(':checked') )
+      {
+        if (1==op)
+        {
+         $('#reqOp').val("POST");
+         $('#reqURL').attr("value", resourceURL);
+         var props = JSON.parse($("#pop"+i).text());
+         props = stripROProps(props);
+         //add back key prop  
+         props[manifest.class.key]= "<fill in unique value>";
+         $('#reqBody').attr("value", JSON.stringify(props, null, " "));
+         document.getElementById("treeeditor").contentWindow.fetchJSON();
+        } else
+        if (2==op)
+        {
+         $('#reqOp').val("POST");
+         var label = $("#chl"+i).text();
+         label = label.substring(0, label.length-1);
+         $('#reqURL').attr("value", resourceURL+"/"+label);
+         var props = JSON.parse($("#pop"+i).text());
+         props = stripROProps(props);
+         $('#reqBody').attr("value", JSON.stringify(props, null, " "));
+         document.getElementById("treeeditor").contentWindow.fetchJSON();
+        } else
+        {
+         $('#reqOp').val("DELETE");
+         var label = $("#chl"+i).text();
+         label = label.substring(0, label.length-1);
+         $('#reqURL').attr("value", resourceURL+"/"+label);
+         $('#reqBody').attr("value", "<no body required for DELETE>");
+        }
+        break;
+      } 
+    }
+
+    turnPage(true);
+
+    $('#reqOp').selectmenu('refresh', true);
+  }
+
+  function gotoResponseStage()
+  {
+    $('#response').attr("value","");
+
+    var op = $('#reqOp').val();
+    if ("POST"==op) //create and modify => POST
+    {
+      var json = document.getElementById("treeeditor").contentWindow.editor.get();
+     $.post($('#reqURL').val(),  JSON.stringify(json, null, " "))
+      .done(function(status) {$('#response').attr("value", status) })
+      .error(function(jqXHR) {$('#response').attr("value", jqXHR.responseText) });
+    } else //DELETE
+    {
+      $.ajax( {
+         type: "DELETE",
+         url: $('#reqURL').val(),
+        } )
+        .done(function(status) { $('#response').attr("value", status) })
+        .fail(function(jqXHR) {  $('#response').attr("value", jqXHR.responseText) });
+    }
+
+    turnPage(true);
+    window.scrollTo(0,0);
+  }
+
+  function dd(target, parent)
+  {
+ 
+    if (typeof target === "undefined" || typeof parent === "undefined")
+    {
+      return;
+    }
+
+    var targetArr = target.split('.');
+    if (targetArr.length > 1)
+    {
+      dd(targetArr.slice(1).join('.'), parent[targetArr[0]]);
+    } else
+    {
+      delete parent[target];
+    }
+  } 
+
+  function stripROProps(props)
+  {
+    for (var i=0; i<arrROProps.length; i++)
+    {
+      dd(arrROProps[i].substring(1), props); 
+    }
+    return props;
+  }
+
+  function findROProps(inMeta, inPath, outProps)
+  {
+    if (inMeta == undefined || inPath == undefined) return;
+
+    var keys = Object.keys(inMeta);
+    for (var i=0; i<keys.length; i++)
+    {
+      var val =  inMeta[keys[i]];
+      if (manifest.types != undefined && val.type in manifest.types)
+      {
+        if (val.attrib == "ro")
+        {
+          outProps.push(inPath + "." + keys[i]);
+        } else
+        {
+          val = manifest.types[val.type];
+          findROProps(val, inPath + "." + keys[i], outProps);
+        }
+      } else
+      { // at a primitive
+        if (val.attrib == "ro")
+        {
+          outProps.push(inPath + "." + keys[i]);
+        }          
+      }
+    }
+  }
+
+ var str=""; var arrROProps=[]; 
+ findROProps(manifest.class.properties, str, arrROProps);
+
+$(window).resize(function() {
+  $('head').prepend('<div>' + $(window).width() + '</div>');
+});
+
+$(document).ready(function() {
+
+    $('.ui-slider-handle').live('touchstart', function(){
+        // When user touches the slider handle, temporarily unbind the page turn handlers
+        doUnbind();
+    });
+
+    $('.ui-slider-handle').live('mousedown', function(){
+        // When user touches the slider handle, temporarily unbind the page turn handlers
+        doUnbind();
+    });
+
+    $('.ui-slider-handle').live('touchend', function(){
+        //When the user let's go of the handle, rebind the controls for page turn
+        // Put in a slight delay so that the rebind does not happen until after the swipe has been triggered
+        setTimeout( function() {doBind();}, 100 );
+    });
+
+    $('.ui-slider-handle').live('mouseup', function(){
+        //When the user let's go of the handle, rebind the controls for page turn
+        // Put in a slight delay so that the rebind does not happen until after the swipe has been triggered
+        setTimeout( function() {doBind();}, 100 );
+    });
+
+    // Set the initial window (assuming it will always be #1
+    window.now = 1;
+
+    //get an Array of all of the pages and count
+    windowMax = $('div[data-role="page"]').length; 
+
+   doBind();
+});
+
+    // Functions for binding swipe events to named handlers
+    function doBind() {
+        $('div[data-role="page"]').live("swipeleft", turnPage); 
+        $('div[data-role="page"]').live("swiperight", turnPageBack);
+    }
+
+    function doUnbind() {
+        $('div[data-role="page"]').die("swipeleft", turnPage);
+        $('div[data-role="page"]').die("swiperight", turnPageBack);
+    }
+
+    // Named handlers for binding page turn controls
+    function turnPage(onButton){
+        // Check to see if we are already at the highest numbers page            
+       // if (window.now < windowMax) {
+            window.now++
+            var page = window.now % windowMax;
+            page = (0==page?3:page);
+            if (1==page)
+            {
+              var homeURL = window.location.href.split("#");
+              window.location = homeURL[0];
+            } else
+            {
+              if (onButton)
+              {
+                $.mobile.changePage("#stage"+page, {transition: "slide"}, false, true);
+              }
+            }
+ //       }
+    }
+
+    function turnPageBack()
+    {
+        // Check to see if we are already at the lowest numbered page
+        if (window.now % windowMax != 1) 
+        {
+            window.now--;
+            var page = window.now % windowMax;
+            page = (0==page?3:page);
+            $.mobile.changePage("#stage"+page, {transition: "slide", reverse: true }, true, true);
+        }
+    }
+
+    var prevSelection = "tab1";
+        $("#navbar ul li").live("click",function(){
+           var newSelection = $(this).children("a").attr("data-tab-class");
+           $("."+prevSelection).addClass("ui-screen-hidden");
+           $("."+newSelection).removeClass("ui-screen-hidden");
+           prevSelection = newSelection;
+    });
+
+</script>
+
+<style type="text/css">
+tr { height: 58px; }
+/*
+.instances,.ovfCont {
+	border: 1px solid #e3e3e3;
+	background-color: #f2f2f2;
+        width: 100%;
+	border-radius: 6px;
+	-webkit-border-radius: 6px;
+	-moz-border-radius: 6px;
+}
+.instances td, .instances th, .ovfCont td, .ovfCont th {
+	padding: 5px;
+	color: #333;
+}
+.instances,.ovfCont thead {
+	font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+	padding: .2em 0 .2em .5em;
+	text-align: left;
+	color: #4B4B4B;
+	background-color: #C8C8C8;
+	background-image: -webkit-gradient(linear, left top, left bottom, from(#f2f2f2), to(#e3e3e3), color-stop(.6,#B3B3B3));
+	background-image: -moz-linear-gradient(top, #D6D6D6, #B0B0B0, #B3B3B3 90%);
+	border-bottom: solid 1px #999;
+}
+.instances,.ovfCont th {
+	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	font-size: 17px;
+	line-height: 20px;
+	font-style: normal;
+	font-weight: normal;
+	text-align: left;
+	text-shadow: white 1px 1px 1px;
+}
+
+.instances,.ovfCont td {
+	line-height: 20px;
+	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	font-size: 14px;
+	border-bottom: 1px solid #fff;
+	border-top: 1px solid #fff;
+}
+
+.instances,.ovfCont td:hover {
+	background-color: #fff;
+*/
+</style>

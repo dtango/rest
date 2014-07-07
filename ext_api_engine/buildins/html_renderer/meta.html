@@ -1,0 +1,68 @@
+<script src="/web/handlebars.js" type="text/javascript"></script>
+<script src="/web/jquery.min.js"></script>
+
+<h1> About this Resource </h1>
+<div id="class_view"> </div>
+
+<h1> Properties </h1>
+<div id="prop_view"> </div>
+
+<h1> Types </h1>
+<div id="type_view"> </div>
+
+<script>
+Handlebars.registerHelper('eachProperty', function(context, options) {
+    var ret = "";
+    for(var prop in context)
+    {
+    	ret = ret + options.fn({property:prop,value:context[prop]});
+    }
+    return ret;
+});
+
+{
+	var view = '<table border=1> <tr> <th> key property</th><th>create</th><th>delete</th><th>mutability</th><th>paged GET</th><th> GET</th><th>multi-instance</th></tr> \
+                                <tr> <td> {{this.key}} </td>  \
+                                <td> {{this.operations.create}}</td> \
+	    			<td> {{this.operations.delete}} </td> \
+	    			<td> {{this.operations.set}} </td> \
+	    			<td> {{this.operations.query}} </td> \
+	    			<td> {{this.operations.get}} </td> \
+	    			<td> {{this.operations.enum}} </td> </tr> \
+	  			</table>';
+
+	var template = Handlebars.compile(view);
+	var html = template(manifest.class);
+	$("#class_view").append(html);
+}
+
+{
+        var view = '<table border=1> <tr><th>property</th><th>type</th><th>array</th><th>settable</th><th>doc</th></tr> \
+                    {{#eachProperty this}} \
+                                <tr> <td>{{property}}</td> <td>{{value.type}}</td> <td>{{value.is_array}}</td> <td>{{value.attrib}}</td> <td>{{value.doc}}</td> </tr> \
+                                {{/eachProperty }} \
+                        </table>';
+
+        var template = Handlebars.compile(view);
+        var html = template(manifest.class.properties);
+        $("#prop_view").append(html);
+}
+
+
+{
+	var view = '<table border=1> <tr><th>property</th><th>type</th><th>doc</th></tr> \
+	                  {{#eachProperty this}} \
+	    				<tr> <td>{{property}}</td> <td>{{value.type}}</td> <td>{{value.doc}}</td> </tr> \
+	  				  {{/eachProperty }} \
+	  			</table>';
+
+	var template = Handlebars.compile(view);
+	for (var prop in manifest.types)
+	{
+		var html = template(manifest.types[prop]);
+		html = "<h2>" + prop + "</h2>" + html;
+	    $("#type_view").append(html);
+	}
+}
+
+</script>

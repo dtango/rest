@@ -1,0 +1,33 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="/web/jsoneditor/jsoneditor-min.css">
+    <script type="text/javascript" src="/web/jsoneditor/jsoneditor-min.js"></script>
+
+</head>
+<body>
+<p>
+    <!--button onclick="sendJSON();">Update JSON</button-->
+</p>
+<div id="jsoneditor" style="width: 500px; height: 400px;"></div>
+
+<script type="text/javascript" >
+   var container = document.getElementById("jsoneditor");
+   var editor = new JSONEditor(container);
+
+   function fetchJSON() 
+   {
+      var json = JSON.parse(parent.$("#reqBody").val());
+      editor.set(json);
+   }
+
+   function sendJSON() 
+   {
+      var json = editor.get();
+      parent.$("#reqBody").attr("value", JSON.stringify(json, null, " "));
+   }
+
+</script>
+</body>
+</html>
+

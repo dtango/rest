@@ -1,0 +1,488 @@
+-- Created by IntelliJ IDEA.
+-- User: skolar
+-- Date: 6/20/13
+-- Time: 1:41 PM
+-- To change this template use File | Settings | File Templates.
+--
+
+local vsh = require("vsh")
+local sax = require("sax")
+
+local insts = {}
+local inst
+local props = {}
+
+
+local v = {}
+
+local sc = {}
+local vExist = flase
+local flags = {}
+local capability = ""
+
+sc.startElement =  function (en)
+    if en == "profile_name" then
+        flags.newInstance = true
+        flags.name = true
+        capability = ""
+    elseif en == "type" and flags.newInstance then
+        flags.type = true
+    elseif en == "desc" and flags.newInstance then
+        flags.desc = true
+    elseif en == "portgrp" and flags.newInstance then
+        flags.portGroup = true
+    elseif en == "min_ports" and flags.newInstance then
+        flags.minPorts = true
+    elseif en == "max_ports" and flags.newInstance then
+        flags.maxPorts = true
+    elseif en == "port_binding" and flags.newInstance then
+        flags.portBinding = true
+    elseif en == "status" and flags.newInstance then
+        flags.state = true
+    elseif en == "cap_l3" and flags.newInstance then
+        flags.l3Control = true 
+    elseif en == "cap_iscsi" and flags.newInstance then
+        flags.iscsiMultipath = true 
+    elseif en == "cap_vxlan" and flags.newInstance then
+        flags.vxlan = true 
+    elseif en == "cap_l3vnservice" and flags.newInstance then
+        flags.l3vservice = true 
+    elseif en == "profile_cfg" and flags.newInstance then
+        flags.cfg = true
+    end
+end
+
+
+
+sc.endElement =  function (en)
+    if en == "port_binding" then
+        flags.newInstance = nil
+    elseif en == "profile_name" and flags.newInstance then
+        flags.name = nil
+    elseif en == "type" and flags.newInstance then
+        flags.type = nil
+    elseif en == "desc" and flags.newInstance then
+        flags.desc = nil
+    elseif en == "portgrp" and flags.newInstance then
+        flags.portGroup = nil
+    elseif en == "min_ports" and flags.newInstance then
+        flags.minPorts = nil
+    elseif en == "max_ports" and flags.newInstance then
+        flags.maxPorts = nil
+    elseif en == "port_binding" and flags.newInstance then
+        flags.portBinding = nil
+    elseif en == "status" and flags.newInstance then
+        flags.state = nil
+    elseif en == "cap_l3" and flags.newInstance then
+        flags.l3Control = nil 
+    elseif en == "cap_iscsi" and flags.newInstance then
+        flags.iscsiMultipath = nil 
+    elseif en == "cap_vxlan" and flags.newInstance then
+        flags.vxlan = nil 
+    elseif en == "cap_l3vnservice" and flags.newInstance then
+        flags.l3vservice = nil 
+    elseif en == "profile_cfg" and flags.newInstance then
+        flags.cfg = nil
+    end
+
+end
+
+
+
+sc.characters =  function (v)
+    if flags.name then
+        if flags.newInstance then
+            flags.key = v
+            insts[v] = {}
+            insts[v].properties= {name=v}
+        end
+    end
+    if flags.type and flags.newInstance then
+        insts[flags.key].properties.type = v
+    end
+    if flags.desc and flags.newInstance then
+        insts[flags.key].properties.description = v
+    end
+    if flags.portGroup and flags.newInstance then
+        insts[flags.key].properties.portGroupName = v
+    end
+    if flags.minPorts and flags.newInstance then
+        insts[flags.key].properties.minPorts = v
+    end
+    if flags.maxPorts and flags.newInstance then
+        insts[flags.key].properties.maxPorts = v
+    end
+    if flags.state and flags.newInstance then
+        insts[flags.key].properties.state = v
+    end
+    if flags.l3Control and flags.newInstance then
+        if v == "yes" then
+            capability = capability.." l3control"
+        end
+    end
+    if flags.iscsiMultipath and flags.newInstance then
+        if v == "yes" then
+            capability = capability.." iscsi-multipath"
+        end
+    end
+    if flags.vxlan and flags.newInstance then
+        if v == "yes" then
+            capability = capability.." vxlan"
+        end
+    end
+    if flags.l3vservice and flags.newInstance then
+        if v == "yes" then
+            capability = capability.." l3-vservice"
+        end
+    end
+    if flags.portBinding and flags.newInstance then
+        insts[flags.key].properties.portBinding = v
+    end
+    if flags.cfg and flags.newInstance then
+        if insts[flags.key].properties.profileConfig == nil then insts[flags.key].properties.profileConfig = {} end
+            table.insert(insts[flags.key].properties.profileConfig,v)
+    end
+    if (flags.l3Control or flags.iscsiMultipath or flags.vxlan or flags.l3vservice) and flags.newInstance then
+        insts[flags.key].properties.capability = capability
+    end
+
+end
+
+
+v.enum = function()
+    local xml = vsh.run("show port-profile | xml")
+    sax.parse(xml,sc)
+    return {instances=insts}
+end
+
+
+v.get = function(index)
+    local xml = vsh.run("show port-profile name "..index.. " | xml")
+    sax.parse(xml,sc)
+    if next(insts)==nil then
+       error({code =404, msg="Not Found", detail='pp "'..index..'" does not exist'})
+    else
+       return {instances=insts}
+    end
+end
+
+v.has_instance = function(index)
+    local status, result = pcall(v.get, index)
+    if status then
+        for k,v in pairs(result) do
+            return true
+        end
+    end
+    return false
+end
+
+v.delete = function(index)
+    if not v.has_instance(index) then error({code =404, msg="Not Found", detail='pp "'..index..'" does not exist'}) end
+    vsh.run("config t ; no port-profile "..index)
+end
+
+v.create = function(index)
+    if v.has_instance(index) then error('pp "'..index..'" already exists') end
+    v.set(index)
+end
+
+
+
+
+v.set = function(index)
+    if v.has_instance(index) then
+        vExist=true
+    else
+        vExist=false
+    end
+    local cmd = 'config t ; '
+    cmd = cmd .. 'port-profile'
+    if request.type then
+    if vExist then
+       logger("Changing type of an existing  profile is not allowed for pp "..index.."\n")
+       error({code =404, msg="Invalid", detail='Failed to configure pp "'..index..'" \nChanging type of an existing  profile is not allowed'})
+    else
+        cmd = cmd..' type '..request.type..''
+    end
+    end
+    cmd = cmd ..' '..index..' ;'
+    local tmpCmd = cmd
+    logger(cmd)
+    local status, err = pcall(vsh.run, cmd)
+    if not status then
+       logger("Failed to configure pp "..index.."\n")
+       error({code =404, msg="Invalid", detail='Failed to configure pp "'..index..'" \nProvide valid name and type(ethernet/vethernet) '})
+    end
+
+    if request.description then
+        cmd = tmpCmd .. 'description '..request.description..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure description for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure description for port-profile"'..index..'"'})
+        end
+    end
+    if request.state == true or request.state == false then
+        if request.state == true then
+            cmd = tmpCmd .. ' state enabled '
+        else
+            cmd = tmpCmd .. 'no state enabled '
+        end 
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure state  for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure state for port-profile"'..index..'"'})
+        end
+    end
+    if request.shutdown == true or request.shutdown == false then
+        if request.shutdown == true then
+            cmd = tmpCmd .. ' shutdown '
+        else
+            cmd = tmpCmd .. 'no shutdown '
+        end
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure shutdown state  for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure shutdown state for port-profile"'..index..'"'})
+        end
+    end
+
+
+    if request.portGroupName then
+        cmd = tmpCmd .. ' vmware port-group '..request.portGroupName..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure port group name for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure port group name for port-profile"'..index..'"'})
+        end
+    end
+
+
+    if request.minPorts then
+        if (request.minPorts < 1 and request.minPorts <= 1024) then
+           logger("SKDB") 
+           logger(request.minPorts)
+           logger("Failed to configure pp "..index.."\n")
+           error({code =404, msg="Invalid", detail='Failed to configure pp "'..index..'" \nProvide valid min-ports value <1-1024> '})
+        end
+        cmd = tmpCmd .. 'min-ports '..request.minPorts..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure min-ports for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure min-ports for port-profile"'..index..'"'})
+        end
+    end
+
+    if request.maxPorts then
+        if (request.maxPorts < 1 and request.maxPorts <= 1024) then
+           logger("Failed to configure pp "..index.."\n")
+           error({code =404, msg="Invalid", detail='Failed to configure pp "'..index..'" \nProvide valid max-ports value <1-1024> '})
+        end
+        cmd = tmpCmd .. 'max-ports '..request.maxPorts..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure max-ports for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure max-ports for port-profile"'..index..'"'})
+        end
+    end
+
+
+    if request.switchportMode then
+        if  (request.switchportMode ~= "trunk" and  request.switchportMode ~= "access") then
+            error({code =404, msg="Invalid", detail='Invalid mode "'..request.switchportMode..'"\nValid modes can be "trunk" or "access"'})
+        end
+
+        cmd = tmpCmd .. '  switchport mode '..request.switchportMode..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure port mode for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure port mode for port-profile"'..index..'"'})
+        end
+    end
+
+    if request.portBinding then
+        if  (request.portBinding ~= "static" and  request.portBinding ~= "static auto" and request.portBinding ~= "dynamic" and  request.portBinding ~= "dynamic auto" and request.portBinding ~= "ephemeral") then
+            error({code =404, msg="Invalid", detail='Invalid mode "'..request.portBinding..'"\nValid port binding can be one of these: "static, static auto, dynamic, dynamic auto, ephemeral"'})
+        end
+
+        cmd = tmpCmd .. ' port-binding '..request.portBinding..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure port-binding for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure port-binding for port-profile"'..index..'"'})
+        end
+    end
+
+
+    if request.switchportTrunkVLANs then
+        local vlan = ""
+        local vcount  = 0
+        for i=1,table.getn(request.switchportTrunkVLANs) do
+            if  (request.switchportTrunkVLANs[i]  < 1 and  request.switchportTrunkVLANs[i]  > 4094) then
+                error({code =404, msg="Invalid", detail='Invalid vlan "'..request.switchportTrunkVLANs[i]..'"\nValid vlans can be <1-4094>'}) 
+            end
+            if  vcount > 0 then 
+               vlan = vlan..", "..request.switchportTrunkVLANs[i].."" 
+            else 
+               vlan = vlan..request.switchportTrunkVLANs[i]
+            end
+            vcount = 1
+        end
+        if not vcount then
+            logger("Failed to configure switch port trunk vlans for port-profile"..index)
+            error({code =404, msg="Invalid", detail='Failed to configure switch port trunk vlans for port-profile "'..index..'"'..'\n no vlans provided, please provide atleast one vlan'})
+        end
+        cmd = tmpCmd .. '  switchport trunk allowed vlan '..vlan..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure switch port  trunk vlans for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure switch port trunk vlans for port-profile"'..index..'"'})
+        end
+    end
+
+
+    if request.switchportTrunkNativeVLAN then
+        if  (request.switchportTrunkNativeVLAN  < 1 and  request.switchportTrunkNativeVLAN  > 4094) then
+            error({code =404, msg="Invalid", detail='Invalid vlan "'..request.switchportTrunkNativeVLAN ..'"\nValid vlans can be '}) 
+        end
+
+        cmd = tmpCmd .. '  switchport  trunk native vlan '..request.switchportTrunkNativeVLAN ..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure native vlan for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure native vlan for port-profile"'..index..'"'})
+        end
+    end
+
+    if request.switchportAccessVLAN then
+        if  (request.switchportAccessVLAN < 1 and  request.switchportAccessVLAN > 4094) then
+            error({code =404, msg="Invalid", detail='Invalid vlan "'..request.switchportAccessVLAN  ..'"\nValid vlans can be '}) 
+        end
+
+        cmd = tmpCmd .. ' switchport access vlan '..request.switchportAccessVLAN  ..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure access vlan for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure access vlan for port-profile"'..index..'"'})
+        end
+    end
+
+    if request.switchportAccessBridgeDomain then
+        cmd = tmpCmd .. ' switchport access bridge-domain '..request.switchportAccessBridgeDomain  ..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure access bridge-domain for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure access bridge-domain for port-profile"'..index..'"'})
+        end
+    end
+
+    if request.org then
+        cmd = tmpCmd .. ' org '..request.org..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure org name for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure org name for port-profile"'..index..'"'})
+        end
+    end
+
+    if request.vservicePath then
+        cmd = tmpCmd .. ' vservice path '..request.vservicePath..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure vservicePath  for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure vservicePath for port-profile"'..index..'"'})
+        end
+    end
+
+    if request.vserviceNodeName then
+        cmd = tmpCmd .. ' vservice node '..request.vserviceNodeName..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure vserviceNodeName  for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure vserviceNodeName for port-profile"'..index..'"'})
+        end
+    end
+
+    if request.vserviceProfile then
+        if not request.vserviceNodeName then
+            logger("Failed to configure vserviceProfile  for port-profile"..index)
+            error({code =404, msg="Invalid", detail='Failed to configure vserviceProfile for port-profile"'..index..'"\nvserviceNodeName not provided, please privide vserviceNodeName along with profile'})
+        end
+        cmd = tmpCmd .. ' vservice node '..request.vserviceNodeName..' profile '..request.vserviceProfile..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure vserviceProfile  for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure vserviceProfile for port-profile"'..index..'"'})
+        end
+    end
+
+    if request.capability then
+        if  (request.capability ~= "l3control" and  request.capability ~= "l3-vservice" and request.capability ~= "multi-mac" and  request.capability ~= "vxlan") then
+            error({code =404, msg="Invalid", detail='Invalid mode "'..request.capability..'"\nValid capability can be one of these: "l3control, l3-vservice, multi-mac, vxlan"'})
+        end
+
+        cmd = tmpCmd .. ' capability '..request.capability..''
+        local status, err = pcall(vsh.run, cmd)
+        if not status then
+            if not vExist then
+                v.delete(index)
+            end
+            logger("Failed to configure capability for port-profile"..index.."\n"..err.stdout.."")
+            error({code =404, msg="Invalid", detail='Failed to configure capability for port-profile"'..index..'"'})
+        end
+    end
+
+end
+
+return {pp=v}
+
+
+

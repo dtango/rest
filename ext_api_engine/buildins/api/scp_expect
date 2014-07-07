@@ -1,0 +1,43 @@
+# SCP expect script
+# supports username/password authentication ONLY
+# by jasonxu@cisco.com
+# 6/18/2013
+
+set timeout 600
+
+set username [lindex $argv 0]
+set password [lindex $argv 1]
+set address  [lindex $argv 2]
+set path     [lindex $argv 3]
+
+spawn -noecho /isan/bin/vsh -c "copy scp://$username@$address//$path bootflash:"
+
+expect {
+   "ingerprin" {
+      expect {
+         "yes/no" {
+            send "yes\r";
+          }
+          "y/n" {
+             send "y\r";
+          }
+      }
+      exp_continue
+   }
+   "assword" {
+      send $password\r
+      expect {
+         "assword" {
+             exit 2
+         }
+         exp_continue
+      }
+   }
+   eof {
+      catch wait result
+      exit [lindex $result 3]
+   }
+}
+catch wait result
+exit [lindex $result 3]
+

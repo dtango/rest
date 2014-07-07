@@ -1,0 +1,46 @@
+return {
+--unpacked from feature/rest/engine/ee_lua.tgz
+    ["/api"] = { addon = "api", class = "api" },
+    ["/api/port-profile"] = { addon = "pp", class = "pp" },
+    ["/api/user"] = { addon = "user", class = "user" },
+    ["/api/vlan"] = { addon = "vlan", class = "vlan" },
+    ["/api/vxlan"] = { addon = "vxlan", class = "vxlan" },
+
+-- Current V1.0 Api
+
+    ['/api/vpath'] = { addon = 'vpath', class = 'vpath' },
+    ['/api/vpath/v1.0'] = { addon = 'vpath', class = 'v1' },
+    ['/api/vpath/v1.0/service-nodes'] = { addon = "vpath", class = "node" },
+    ['/api/vpath/v1.0/service-paths'] = { addon = "vpath", class = "path" },
+--    ['/api/v1.0/service-pools'] = { addon = "vpath", class = "pool" },
+--    ['/api/v1.0/overlay-vrf'] = { addon = "vpath", class = "vrf" },
+--    ['/api/v1.0/vrf-map'] = { addon = "vpath", class = "vrfmap" },
+--    ['/api/v1.0/idle-timeouts'] = { addon = "vpath", class = "idletime" },
+--    ['/api/v1.0/ports'] = { addon = "vpath", class = "port" },
+
+    ['/api/n1k/kvm'] = { addon = 'hyperv', class = 'hyper_v' },
+    ['/api/n1k/kvm/vm-network'] = { addon = 'hyperv', class = 'vm_network' },
+    ['/api/n1k/kvm/vm-network/ports'] = { addon = 'hyperv', class = 'vm_network_ports' },
+    ['/api/n1k/kvm/bridge-domain'] = { addon = 'hyperv', class = 'bridge_domain' },
+    ['/api/n1k/kvm/events'] = { addon = 'hyperv', class = 'events' },
+    ['/api/n1k/kvm/switch-extension-info'] = { addon = 'hyperv', class = 'switch_extension_info' },
+    ['/api/n1k/kvm/vsem-system-info'] = { addon = 'hyperv', class = 'vsem_system_info' },
+
+    ['/api/n1k'] = { addon = 'n1k', class = 'n1k' },
+    ['/api/n1k/uplink'] = { addon = 'n1k', class = 'uplink' },
+    ['/api/n1k/uplink-port-profile'] = { addon = 'hyperv', class = 'uplink_port_profile' },
+    ['/api/n1k/vnic'] = { addon = 'n1k', class = 'vnic' },
+    ['/api/n1k/virtual-port-profile'] = { addon = 'hyperv', class = 'virtual_port_profile' },
+    ['/api/n1k/logical-network'] = { addon = 'hyperv', class = 'logical_network' },
+    ['/api/n1k/network-segment-pool'] = { addon = 'hyperv', class = 'network_segment_pool' },
+    ['/api/n1k/network-segment'] = { addon = 'hyperv', class = 'network_segment' },
+    ['/api/n1k/ip-pool-template'] = { addon = 'hyperv', class = 'ip_pool_template' },
+    ['/api/n1k/port-profile'] = { addon = 'n1k', class = 'portProfile' },
+    ['/api/n1k/license'] = { addon = 'n1k', class = 'license' },
+    ['/api/n1k/summary'] = { addon = 'n1k', class = 'summary' },
+    ['/api/n1k/vem'] = { addon = 'n1k', class = 'vem' },
+    ['/api/n1k/vem/port-profile'] = { addon = 'n1k', class = 'vemPortProfile' },
+    ['/api/n1k/vem/vnic'] = { addon = 'n1k', class = 'vemVnic' },
+    ['/api/n1k/vem/uplink'] = { addon = 'n1k', class = 'vemUplink' },
+    ['/api/n1k/encapsulation-profile'] = { addon = 'hyperv', class = 'encapsulation_profile' },
+}
